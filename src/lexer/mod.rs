@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-enum Token {
+pub enum Token {
     ILLEGAL, // = "ILLEGAL"
     EOF,     // = "EOF"
 
@@ -38,7 +38,7 @@ enum Token {
 }
 
 #[derive(Debug)]
-struct Lexer {
+pub struct Lexer {
     input: Vec<char>,
     /// current position in the input (points to current char)
     position: usize,
@@ -49,7 +49,7 @@ struct Lexer {
 }
 
 impl Lexer {
-    fn new(input: String) -> Lexer {
+    pub fn new(input: String) -> Lexer {
         let mut lex = Lexer {
             input: input.chars().collect(),
             position: 0,
@@ -103,7 +103,7 @@ impl Lexer {
         Token::INT(number.parse::<i64>().unwrap_or_default())
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespaces();
         let tok = match self.ch {
             b'=' => match self.peek_char() {

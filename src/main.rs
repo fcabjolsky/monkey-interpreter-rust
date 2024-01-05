@@ -1,5 +1,8 @@
+use rpl::start;
+
 mod lexer;
+mod rpl;
 
 fn main() {
-    println!("Hello, world!");
+    start();
 }
