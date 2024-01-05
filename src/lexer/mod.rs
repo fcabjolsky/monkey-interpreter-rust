@@ -2,12 +2,23 @@
 enum Token {
     ILLEGAL, // = "ILLEGAL"
     EOF,     // = "EOF"
+
     // Identifiers + literals
     IDENT(String), // = "IDENT" // add, foobar, x, y, ...
     INT(i64),      // = "INT" // 1343456
+
     // Operators
-    ASSIGN, // = "="
-    PLUS,   // = "+"
+    ASSIGN,   // = "="
+    PLUS,     // = "+"
+    MINUS,    // = "-"
+    BANG,     // = "!"
+    ASTERISK, // = "*"
+    SLASH,    // = "/"
+    LT,       // = "<"
+    GT,       // = ">"
+    EQ,       // = "=="
+    NotEq,   // = "!="
+
     // Delimiters
     COMMA,     // = ","
     SEMICOLON, // = ";"
@@ -15,9 +26,15 @@ enum Token {
     RPAREN,    // = ")"
     LBRACE,    // = "{"
     RBRACE,    // = "}"
+
     // Keywords
     FUNCTION, // = "FUNCTION"
     LET,      //= "LET"
+    TRUE,     // = "TRUE"
+    FALSE,    // = "FALSE"
+    IF,       // = "IF"
+    ELSE,     // = "ELSE"
+    RETURN,   // = "RETURN"
 }
 
 #[derive(Debug)]
@@ -44,49 +61,65 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        self.ch = if let Some(ch) = self.input.get(self.read_position) {
-            *ch as u8
-        } else {
-            0
-        };
+        self.ch = self.input.get(self.read_position).map_or(0, |ch| *ch as u8);
         self.position = self.read_position;
         self.read_position += 1;
     }
 
-    fn skip_whitespace(&mut self) {
-        if self.ch.is_ascii_whitespace() {
+    fn peek_char(&self) -> u8 {
+        self.input.get(self.read_position).map_or(0, |ch| *ch as u8)
+    }
+
+    fn skip_whitespaces(&mut self) {
+        while self.ch.is_ascii_whitespace() {
             self.read_char();
         }
     }
 
-    fn read_identifier(&mut self) -> Token {
+    fn read_word(&mut self, cond: fn(u8) -> bool) -> String {
         let start = self.position;
-        while is_letter(self.ch) {
+        while cond(self.ch) {
             self.read_char();
         }
-        let ident: String = self.input[start..self.position].iter().collect();
+        self.input[start..self.position].iter().collect()
+    }
+
+    fn read_identifier(&mut self) -> Token {
+        let ident = self.read_word(is_letter);
         match ident.as_str() {
             "let" => Token::LET,
             "fn" => Token::FUNCTION,
+            "true" => Token::TRUE,
+            "false" => Token::FALSE,
+            "if" => Token::IF,
+            "else" => Token::ELSE,
+            "return" => Token::RETURN,
             _ => Token::IDENT(ident),
         }
     }
 
     fn read_number(&mut self) -> Token {
-        let start = self.position;
-        dbg!(self.read_position);
-        while self.ch.is_ascii_digit() {
-            self.read_char();
-        }
-        let number: String = self.input[start..self.position].iter().collect();
-        dbg!(self.read_position);
+        let number = self.read_word(is_digit);
         Token::INT(number.parse::<i64>().unwrap_or_default())
     }
 
     fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
+        self.skip_whitespaces();
         let tok = match self.ch {
-            b'=' => Token::ASSIGN,
+            b'=' => match self.peek_char() {
+                b'=' => {
+                    self.read_char();
+                    Token::EQ
+                }
+                _ => Token::ASSIGN
+            },
+            b'!' => match self.peek_char() {
+                b'=' => {
+                    self.read_char();
+                    Token::NotEq
+                }
+                _ => Token::BANG
+            },
             b'+' => Token::PLUS,
             b'(' => Token::LPAREN,
             b')' => Token::RPAREN,
@@ -94,6 +127,11 @@ impl Lexer {
             b'}' => Token::RBRACE,
             b',' => Token::COMMA,
             b';' => Token::SEMICOLON,
+            b'-' => Token::MINUS,
+            b'*' => Token::ASTERISK,
+            b'<' => Token::LT,
+            b'>' => Token::GT,
+            b'/' => Token::SLASH,
             b'0'..=b'9' => {
                 return self.read_number();
             }
@@ -113,6 +151,10 @@ fn is_letter(ch: u8) -> bool {
         b'a'..=b'z' | b'A'..=b'Z' | b'_' => true,
         _ => false,
     }
+}
+
+fn is_digit(ch: u8) -> bool {
+    ch.is_ascii_digit()
 }
 
 #[cfg(test)]
@@ -149,7 +191,18 @@ let ten = 10;
 let add = fn(x, y) {
 x + y;
 };
-let result = add(five, ten);"#;
+let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
+
+if (5 < 10) {
+return true;
+} else {
+return false;
+}
+
+10 == 10;
+10 != 9;"#;
         let tests = [
             Token::LET,
             Token::IDENT(String::from("five")),
@@ -187,6 +240,43 @@ let result = add(five, ten);"#;
             Token::IDENT(String::from("ten")),
             Token::RPAREN,
             Token::SEMICOLON,
+            Token::BANG,
+            Token::MINUS,
+            Token::SLASH,
+            Token::ASTERISK,
+            Token::INT(5),
+            Token::SEMICOLON,
+            Token::INT(5),
+            Token::LT,
+            Token::INT(10),
+            Token::GT,
+            Token::INT(5),
+            Token::SEMICOLON,
+            Token::IF,
+            Token::LPAREN,
+            Token::INT(5),
+            Token::LT,
+            Token::INT(10),
+            Token::RPAREN,
+            Token::LBRACE,
+            Token::RETURN,
+            Token::TRUE,
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::ELSE,
+            Token::LBRACE,
+            Token::RETURN,
+            Token::FALSE,
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::INT(10),
+            Token::EQ,
+            Token::INT(10),
+            Token::SEMICOLON,
+            Token::INT(10),
+            Token::NotEq,
+            Token::INT(9),
+            Token::SEMICOLON,
             Token::EOF,
         ];
 
@@ -194,7 +284,6 @@ let result = add(five, ten);"#;
 
         tests.iter().for_each(|test_tok| {
             let tok = l.next_token();
-            dbg!(&tok);
             assert_eq!(tok, *test_tok);
         });
     }
